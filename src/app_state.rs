@@ -1,5 +1,6 @@
-use crate::database::DatabaseOps;
 use anyhow::Result;
+
+use crate::database::DatabaseOps;
 
 #[derive(Clone)]
 pub struct AppState {

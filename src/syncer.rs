@@ -1,3 +1,7 @@
+use anyhow::Result;
+use tokio::sync::mpsc;
+use tracing::{error, info, warn};
+
 use crate::{
     app_state::AppState,
     aur_fetcher::AurFetcher,
@@ -5,18 +9,15 @@ use crate::{
     srcinfo_parse::ParsedSrcInfo,
     types::{DatabasePackageDetails, DatabasePackageInfo},
 };
-use anyhow::Result;
-use tokio::sync::mpsc;
-use tracing::{error, info, warn};
 
-const BATCH_SIZE: usize = 150;
+const BATCH_SIZE: usize = 128;
 
 pub struct Syncer {
     db: DatabaseOps,
     fetcher: AurFetcher,
 }
 
-struct SrcInfoTuple {
+struct SrcInfo {
     branch: String,
     commit: String,
     srcinfo_text: String,
@@ -52,13 +53,14 @@ impl Syncer {
             .filter(|(branch, commit)| existing_commits.get(branch) != Some(commit))
             .collect::<Vec<_>>();
 
-        info!("Need to process {} updated branches", to_process.len());
         if to_process.is_empty() {
             info!("All branches are up to date");
             return Ok(());
         }
 
-        let (db_sender, mut db_receiver) = mpsc::channel::<SrcInfoTuple>(BATCH_SIZE * 2);
+        info!("Need to process {} updated branches", to_process.len());
+
+        let (db_sender, mut db_receiver) = mpsc::channel::<SrcInfo>(BATCH_SIZE * 2);
 
         let fetcher = self.fetcher.clone();
         let fetch_task = tokio::spawn(async move {
@@ -68,7 +70,7 @@ impl Syncer {
                     Ok(srcinfo_data) => {
                         for ((branch, commit), srcinfo_text) in chunk.iter().zip(srcinfo_data) {
                             if let Err(e) = db_sender
-                                .send(SrcInfoTuple {
+                                .send(SrcInfo {
                                     branch: branch.clone(),
                                     commit: commit.clone(),
                                     srcinfo_text,
@@ -89,10 +91,10 @@ impl Syncer {
             drop(db_sender);
         });
 
-        let mut processed_packages = 0;
-        let mut srcinfo_batch: Vec<SrcInfoTuple> = Vec::with_capacity(BATCH_SIZE);
-        let mut packages_batch: Vec<DatabasePackageDetails> =
-            Vec::with_capacity((BATCH_SIZE + (BATCH_SIZE + 3)) >> 2);
+        let mut branches = 0;
+        let mut packages = 0;
+        let mut srcinfo_batch: Vec<SrcInfo> = Vec::with_capacity(BATCH_SIZE);
+        let mut packages_batch: Vec<DatabasePackageDetails> = Vec::with_capacity(BATCH_SIZE * 2);
         loop {
             srcinfo_batch.clear();
             packages_batch.clear();
@@ -103,11 +105,11 @@ impl Syncer {
             }
 
             let mut tx = self.db.begin_transaction().await?;
-            for SrcInfoTuple {
+            for SrcInfo {
                 branch,
                 commit,
                 srcinfo_text,
-            } in srcinfo_batch.iter()
+            } in &srcinfo_batch
             {
                 self.db.clear_index_with_tx(&mut tx, branch).await?;
                 self.db
@@ -131,19 +133,20 @@ impl Syncer {
                 self.db
                     .update_index_with_tx(&mut tx, &packages_batch)
                     .await?;
-                processed_packages += packages_batch.len();
+                packages += packages_batch.len();
             }
 
             tx.commit().await?;
 
-            info!("Processed {} packages", processed_packages);
+            branches += srcinfo_batch.len();
+
+            info!("Processed {packages} packages from {branches} branches",);
         }
 
         fetch_task.await?;
 
         info!(
-            "✅ Sync completed successfully. Processed {} packages",
-            processed_packages
+            "✅ Sync completed successfully. Processed {packages} packages from {branches} branches",
         );
         Ok(())
     }

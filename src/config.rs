@@ -1,7 +1,10 @@
-use anyhow::{anyhow, Result};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
+
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use std::env;
-use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ConfigFileModel {

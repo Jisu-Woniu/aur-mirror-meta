@@ -1,8 +1,10 @@
-use crate::types::{DatabasePackageDetails, DatabasePackageInfo, SearchType};
+use std::collections::HashMap;
+
 use anyhow::Result;
 use futures::stream::TryStreamExt;
-use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};
-use std::collections::HashMap;
+use sqlx::{Row, SqlitePool, sqlite::SqliteConnectOptions};
+
+use crate::types::{DatabasePackageDetails, DatabasePackageInfo, SearchType};
 
 #[derive(Clone)]
 pub struct DatabaseOps {
@@ -170,7 +172,7 @@ impl DatabaseOps {
             "pkg_groups",
         ];
         for table in tables {
-            let query = format!("DELETE FROM {} WHERE branch = ?", table);
+            let query = format!("DELETE FROM {table} WHERE branch = ?");
             sqlx::query(&query).bind(branch).execute(&mut **tx).await?;
         }
         Ok(())
@@ -290,8 +292,7 @@ impl DatabaseOps {
     ) -> Result<()> {
         for item in items {
             let query = format!(
-                "INSERT OR IGNORE INTO {} (branch, pkg_name, {}) VALUES (?, ?, ?)",
-                table, column
+                "INSERT OR IGNORE INTO {table} (branch, pkg_name, {column}) VALUES (?, ?, ?)"
             );
             sqlx::query(&query)
                 .bind(branch)
@@ -314,7 +315,7 @@ impl DatabaseOps {
                     SELECT DISTINCT p.* FROM pkg_info p 
                     WHERE p.pkg_name LIKE ?
                 "#,
-                format!("%{}%", keyword),
+                format!("%{keyword}%"),
                 1,
             ),
             SearchType::NameDesc => (
@@ -322,7 +323,7 @@ impl DatabaseOps {
                     SELECT DISTINCT p.* FROM pkg_info p 
                     WHERE (p.pkg_name LIKE ? OR p.pkg_desc LIKE ?)
                 "#,
-                format!("%{}%", keyword),
+                format!("%{keyword}%"),
                 2,
             ),
             SearchType::Depends => (
@@ -393,10 +394,7 @@ impl DatabaseOps {
         let placeholders: Vec<String> = package_names.iter().map(|_| "?".to_string()).collect();
         let placeholders_str = placeholders.join(",");
 
-        let query = format!(
-            r#"SELECT * FROM pkg_info WHERE pkg_name IN ({})"#,
-            placeholders_str
-        );
+        let query = format!(r#"SELECT * FROM pkg_info WHERE pkg_name IN ({placeholders_str})"#);
 
         let mut query_builder = sqlx::query(&query);
         for name in package_names {
@@ -439,10 +437,8 @@ impl DatabaseOps {
                 let mut groups = Vec::new();
 
                 for (table, column) in tables {
-                    let query = format!(
-                        "SELECT {} FROM {} WHERE pkg_name = ? AND branch = ?",
-                        column, table
-                    );
+                    let query =
+                        format!("SELECT {column} FROM {table} WHERE pkg_name = ? AND branch = ?");
                     let values = sqlx::query(&query)
                         .bind(&package_name)
                         .bind(&pkg_branch)

@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Result};
+use std::{path::PathBuf, process::Command};
+
+use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
-use std::process::Command;
 use tracing::{debug, info};
 
 mod app_state;

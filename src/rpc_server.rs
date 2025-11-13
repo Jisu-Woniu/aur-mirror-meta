@@ -1,22 +1,23 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use axum::{
+    Router,
     body::Body,
     extract::{Path, Query, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     response::{Redirect, Response},
     routing::{get, post},
-    Router,
 };
+use axum_extra::extract;
 use serde::Deserialize;
-use std::collections::HashMap;
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 
-use crate::types::{RpcPackageDetails, RpcPackageInfo};
 use crate::{
     app_state::AppState,
     database::DatabaseOps,
-    types::{RpcResponse, SearchType},
+    types::{RpcPackageDetails, RpcPackageInfo, RpcResponse, SearchType},
 };
 
 #[derive(Clone)]
@@ -97,7 +98,7 @@ impl RpcServer {
 
 async fn handle_rpc_get(
     State(state): State<RpcState>,
-    axum_extra::extract::Query(query): axum_extra::extract::Query<RpcQuery>,
+    extract::Query(query): extract::Query<RpcQuery>,
 ) -> Result<Response<String>, StatusCode> {
     let all_args = query.args0.into_iter().chain(query.args1).collect();
 
@@ -114,7 +115,7 @@ async fn handle_rpc_get(
 
 async fn handle_rpc_post(
     State(state): State<RpcState>,
-    axum_extra::extract::Form(form): axum_extra::extract::Form<RpcForm>,
+    extract::Form(form): extract::Form<RpcForm>,
 ) -> Result<Response<String>, StatusCode> {
     let all_args = form.args0.into_iter().chain(form.args1).collect();
 
@@ -315,10 +316,8 @@ async fn handle_snapshot(
     if let Some(branch_name) = branch_name {
         match state.db.get_branch_commit_id(branch_name).await {
             Ok(Some(commit_id)) => {
-                let github_url = format!(
-                    "https://github.com/archlinux/aur/archive/{}.tar.gz",
-                    commit_id
-                );
+                let github_url =
+                    format!("https://github.com/archlinux/aur/archive/{commit_id}.tar.gz");
                 Ok(Redirect::temporary(&github_url))
             }
             Ok(None) => Err(StatusCode::NOT_FOUND),
@@ -357,9 +356,8 @@ async fn handle_git_info_refs(
     // Check if package exists and get commit ID
     match state.db.get_branch_commit_id(branch_name).await {
         Ok(Some(commit_id)) => {
-            let response_body = format!("001e# service=git-upload-pack\n000000e1{} HEAD\u{0000}multi_ack thin-pack side-band side-band-64k ofs-delta no-progress include-tag multi_ack_detailed no-done symref=HEAD:refs/heads/master object-format=sha1 agent=git/aur-mirror\n003f{} refs/heads/master\n0000",
-                commit_id,
-                commit_id
+            let response_body = format!(
+                "001e# service=git-upload-pack\n000000e1{commit_id} HEAD\u{0000}multi_ack thin-pack side-band side-band-64k ofs-delta no-progress include-tag multi_ack_detailed no-done symref=HEAD:refs/heads/master object-format=sha1 agent=git/aur-mirror\n003f{commit_id} refs/heads/master\n0000"
             );
 
             Ok(Response::builder()
@@ -390,7 +388,7 @@ fn create_response<T: serde::Serialize>(data: &T, callback: Option<String>) -> R
 
     if let Some(callback_fn) = callback {
         // JSONP response
-        let jsonp = format!("{}({});", callback_fn, json);
+        let jsonp = format!("{callback_fn}({json});");
         Response::builder()
             .header(header::CONTENT_TYPE, "application/javascript")
             .body(jsonp)

@@ -1,5 +1,6 @@
+use std::collections::{HashMap, hash_map};
+
 use itertools::Itertools;
-use std::collections::{hash_map, HashMap};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedSrcInfo {
@@ -95,14 +96,14 @@ impl ParsedSrcInfo {
             result.push(pkg);
         }
 
-        if result.is_empty() {
-            if let Some(base) = current_pkg.take() {
-                result.push(ParsedSrcInfo {
-                    pkgname: base.pkgbase.clone(),
-                    pkgbase: base.pkgbase,
-                    properties: base.properties,
-                });
-            }
+        if result.is_empty()
+            && let Some(base) = current_pkg.take()
+        {
+            result.push(ParsedSrcInfo {
+                pkgname: base.pkgbase.clone(),
+                pkgbase: base.pkgbase,
+                properties: base.properties,
+            });
         }
 
         result
@@ -122,11 +123,12 @@ impl ParsedSrcInfo {
         // join all key named ${k} or starts with ${k}_
         // dedup and flatten
 
-        let prefix = &format!("{}_", k);
+        let prefix = &format!("{k}_");
         self.properties
             .iter()
             .filter(|(key, _)| *key == k || key.starts_with(prefix))
             .flat_map(|(_, values)| values)
+            .sorted_unstable()
             .dedup()
             .cloned()
             .collect()
@@ -137,9 +139,9 @@ impl ParsedSrcInfo {
         let pkgver = self.first_prop("pkgver").unwrap_or("0.0.1");
         let pkgrel = self.first_prop("pkgrel").unwrap_or("1");
         if let Some(epoch) = epoch {
-            format!("{}:{}-{}", epoch, pkgver, pkgrel)
+            format!("{epoch}:{pkgver}-{pkgrel}")
         } else {
-            format!("{}-{}", pkgver, pkgrel)
+            format!("{pkgver}-{pkgrel}")
         }
     }
 }
