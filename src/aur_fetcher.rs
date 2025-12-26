@@ -182,10 +182,7 @@ impl AurFetcher {
             let line_str = line_res??
                 .as_bstr()
                 .and_then(|b| std::str::from_utf8(b).ok());
-            let line = match line_str {
-                Some(l) => l,
-                None => continue,
-            };
+            let Some(line) = line_str else { continue };
             if let Some((commit_id, branch_name)) = line.split_once(" refs/heads/") {
                 let branch_name = branch_name.trim_end();
                 if branch_name != "main" {
@@ -274,33 +271,30 @@ fn map_commit_id_to_srcinfo_blob_id(
         match outcome.kind {
             gix_object::Kind::Commit => {
                 let tree_id = CommitRefIter::from_bytes(&out)
-                    .filter_map(|commit_field_res| {
+                    .find_map(|commit_field_res| {
                         if let Ok(commit::ref_iter::Token::Tree { id }) = commit_field_res {
                             Some(id)
                         } else {
                             None
                         }
                     })
-                    .next()
-                    .ok_or_else(|| anyhow!("Commit {} missing tree", object_id))?;
+                    .ok_or_else(|| anyhow!("Commit {object_id} missing tree"))?;
                 trace!("Mapping commit {} to tree {}", object_id, tree_id);
                 commit_to_tree_map.insert(object_id, tree_id);
             }
             gix_object::Kind::Tree => {
-                let srcinfo_blob_id = TreeRefIter::from_bytes(&out)
-                    .filter_map(|tree_entry_res| {
-                        // find ".SRCINFO" blob
-                        if let Ok(tree_entry) = tree_entry_res {
-                            if tree_entry.filename == b".SRCINFO" && tree_entry.mode.is_blob() {
-                                Some(tree_entry.oid)
-                            } else {
-                                None
-                            }
+                let srcinfo_blob_id = TreeRefIter::from_bytes(&out).find_map(|tree_entry_res| {
+                    // find ".SRCINFO" blob
+                    if let Ok(tree_entry) = tree_entry_res {
+                        if tree_entry.filename == b".SRCINFO" && tree_entry.mode.is_blob() {
+                            Some(tree_entry.oid)
                         } else {
                             None
                         }
-                    })
-                    .next();
+                    } else {
+                        None
+                    }
+                });
                 if let Some(srcinfo_blob_id) = srcinfo_blob_id {
                     trace!(
                         "Mapping tree {} to .SRCINFO blob {}",

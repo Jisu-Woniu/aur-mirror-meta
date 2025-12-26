@@ -32,7 +32,7 @@ impl ParsedSrcInfo {
 
         let lines = srcinfo_text
             .lines()
-            .map(|l| l.trim())
+            .map(str::trim)
             .filter(|l| !l.is_empty());
 
         let mut result: Vec<ParsedSrcInfo> = Vec::new();
@@ -113,7 +113,7 @@ impl ParsedSrcInfo {
     pub fn first_prop(&self, k: &str) -> Option<&str> {
         self.properties
             .get(k)
-            .and_then(|v| v.first().map(|s| s.as_str()))
+            .and_then(|v| v.first().map(String::as_str))
     }
 
     pub fn prop(&self, k: &str) -> Vec<String> {
@@ -124,7 +124,7 @@ impl ParsedSrcInfo {
         // join all key named ${k} or starts with ${k}_
         // dedup and flatten
 
-        let prefix = &format!("{}_", k);
+        let prefix = &format!("{k}_");
         self.properties
             .iter()
             .filter(|(key, _)| *key == k || key.starts_with(prefix))
@@ -139,9 +139,9 @@ impl ParsedSrcInfo {
         let pkgver = self.first_prop("pkgver").unwrap_or("0.0.1");
         let pkgrel = self.first_prop("pkgrel").unwrap_or("1");
         if let Some(epoch) = epoch {
-            format!("{}:{}-{}", epoch, pkgver, pkgrel)
+            format!("{epoch}:{pkgver}-{pkgrel}")
         } else {
-            format!("{}-{}", pkgver, pkgrel)
+            format!("{pkgver}-{pkgrel}")
         }
     }
 }

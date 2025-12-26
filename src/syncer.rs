@@ -89,10 +89,11 @@ impl Syncer {
             drop(db_sender);
         });
 
-        let mut processed_packages = 0;
+        let mut branches = 0;
+        let mut packages = 0;
         let mut srcinfo_batch: Vec<SrcInfoTuple> = Vec::with_capacity(BATCH_SIZE);
         let mut packages_batch: Vec<DatabasePackageDetails> =
-            Vec::with_capacity((BATCH_SIZE + (BATCH_SIZE + 3)) >> 2);
+            Vec::with_capacity(BATCH_SIZE + (BATCH_SIZE >> 1)); // BATCH_SIZE * 1.5
         loop {
             srcinfo_batch.clear();
             packages_batch.clear();
@@ -107,7 +108,7 @@ impl Syncer {
                 branch,
                 commit,
                 srcinfo_text,
-            } in srcinfo_batch.iter()
+            } in &srcinfo_batch
             {
                 self.db.clear_index_with_tx(&mut tx, branch).await?;
                 self.db
@@ -131,20 +132,18 @@ impl Syncer {
                 self.db
                     .update_index_with_tx(&mut tx, &packages_batch)
                     .await?;
-                processed_packages += packages_batch.len();
+                packages += packages_batch.len();
             }
 
+            branches += srcinfo_batch.len();
             tx.commit().await?;
 
-            info!("Processed {} packages", processed_packages);
+            info!("Processed {packages} packages from {branches} branches...");
         }
 
         fetch_task.await?;
 
-        info!(
-            "✅ Sync completed successfully. Processed {} packages",
-            processed_packages
-        );
+        info!("✅ Sync completed successfully. Processed {packages} packages from {branches} branches.");
         Ok(())
     }
 }
@@ -163,9 +162,9 @@ fn srcinfo_to_db_models(
                 branch: branch.clone(),
                 commit_id: commit_id.clone(),
                 pkg_name: pkg.pkgname.clone(),
-                pkg_desc: pkg.first_prop("pkgdesc").map(|s| s.to_string()),
+                pkg_desc: pkg.first_prop("pkgdesc").map(ToString::to_string),
                 version: pkg.version(),
-                url: pkg.first_prop("url").map(|s| s.to_string()),
+                url: pkg.first_prop("url").map(ToString::to_string),
             },
             groups: pkg.prop("groups"),
             depends: pkg.flatten_arch_prop("depends"),

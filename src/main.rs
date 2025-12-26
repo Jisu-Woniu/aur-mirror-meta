@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
     let db_path = config
         .db_path()
         .ok_or(anyhow!("Database path is not configured."))?;
-    info!("Database file: {}", db_path);
+    info!("Database file: {db_path}");
 
     let github_token = config.github_token().or_else(|| {
         debug!("GitHub token is not set. Try `gh auth token`.");

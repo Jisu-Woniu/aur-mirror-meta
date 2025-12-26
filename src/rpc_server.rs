@@ -143,27 +143,25 @@ async fn handle_rpc_request(
             let error = error_response("Please specify an API version.".to_string(), None);
             return Ok(create_response(&error, callback));
         }
-        Some(v) => match v.as_str() {
-            "5" => 5,
-            _ => {
+        Some(v) => {
+            if v == "5" {
+                5
+            } else {
                 let parsed_version = v.parse::<u32>().ok();
                 let error =
                     error_response("Invalid version specified.".to_string(), parsed_version);
                 return Ok(create_response(&error, callback));
             }
-        },
+        }
     };
 
     // Validate request type
-    let req_type = match request_type {
-        None => {
-            let error = error_response(
-                "No request type/data specified.".to_string(),
-                Some(version_num),
-            );
-            return Ok(create_response(&error, callback));
-        }
-        Some(t) => t,
+    let Some(req_type) = request_type else {
+        let error = error_response(
+            "No request type/data specified.".to_string(),
+            Some(version_num),
+        );
+        return Ok(create_response(&error, callback));
     };
 
     match req_type.as_str() {
@@ -171,7 +169,7 @@ async fn handle_rpc_request(
             handle_search(
                 state,
                 search_by,
-                args.first().map(|s| s.as_str()).unwrap_or(""),
+                args.first().map(String::as_str).unwrap_or_default(),
                 callback,
             )
             .await
@@ -315,10 +313,8 @@ async fn handle_snapshot(
     if let Some(branch_name) = branch_name {
         match state.db.get_branch_commit_id(branch_name).await {
             Ok(Some(commit_id)) => {
-                let github_url = format!(
-                    "https://github.com/archlinux/aur/archive/{}.tar.gz",
-                    commit_id
-                );
+                let github_url =
+                    format!("https://github.com/archlinux/aur/archive/{commit_id}.tar.gz");
                 Ok(Redirect::temporary(&github_url))
             }
             Ok(None) => Err(StatusCode::NOT_FOUND),
@@ -337,14 +333,11 @@ async fn handle_git_info_refs(
     // Remove .git extension if present
     let branch_name = branch.strip_suffix(".git").unwrap_or(&branch);
 
-    let service = match params.get("service") {
-        Some(s) => s,
-        None => {
-            return Ok(Response::builder()
-                .status(StatusCode::FORBIDDEN)
-                .body("Please upgrade your git client.".to_string())
-                .unwrap());
-        }
+    let Some(service) = params.get("service") else {
+        return Ok(Response::builder()
+            .status(StatusCode::FORBIDDEN)
+            .body("Please upgrade your git client.".to_string())
+            .unwrap());
     };
 
     if service != "git-upload-pack" {
@@ -357,9 +350,7 @@ async fn handle_git_info_refs(
     // Check if package exists and get commit ID
     match state.db.get_branch_commit_id(branch_name).await {
         Ok(Some(commit_id)) => {
-            let response_body = format!("001e# service=git-upload-pack\n000000e1{} HEAD\u{0000}multi_ack thin-pack side-band side-band-64k ofs-delta no-progress include-tag multi_ack_detailed no-done symref=HEAD:refs/heads/master object-format=sha1 agent=git/aur-mirror\n003f{} refs/heads/master\n0000",
-                commit_id,
-                commit_id
+            let response_body = format!("001e# service=git-upload-pack\n000000e1{commit_id} HEAD\u{0000}multi_ack thin-pack side-band side-band-64k ofs-delta no-progress include-tag multi_ack_detailed no-done symref=HEAD:refs/heads/master object-format=sha1 agent=git/aur-mirror\n003f{commit_id} refs/heads/master\n0000"
             );
 
             Ok(Response::builder()
@@ -390,7 +381,7 @@ fn create_response<T: serde::Serialize>(data: &T, callback: Option<String>) -> R
 
     if let Some(callback_fn) = callback {
         // JSONP response
-        let jsonp = format!("{}({});", callback_fn, json);
+        let jsonp = format!("{callback_fn}({json});");
         Response::builder()
             .header(header::CONTENT_TYPE, "application/javascript")
             .body(jsonp)
@@ -418,12 +409,9 @@ async fn handle_git_upload_pack_post(
             let mut req = state
                 .client
                 .post("https://github.com/archlinux/aur.git/git-upload-pack");
-            for (key, value) in headers.iter() {
+            for (key, value) in &headers {
                 match *key {
-                    header::HOST => {
-                        // Skip
-                    }
-                    header::AUTHORIZATION => {
+                    header::HOST | header::AUTHORIZATION => {
                         // Skip
                     }
                     _ => {

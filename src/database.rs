@@ -24,11 +24,11 @@ impl DatabaseOps {
 
     async fn init_index_tables(&self) -> Result<()> {
         let tables = vec![
-            r#"CREATE TABLE IF NOT EXISTS branch_commits (
+            "CREATE TABLE IF NOT EXISTS branch_commits (
                 branch TEXT NOT NULL PRIMARY KEY,
                 commit_id TEXT NOT NULL
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_info (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_info (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 pkg_desc TEXT,
@@ -36,55 +36,55 @@ impl DatabaseOps {
                 url TEXT,
                 commit_id TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name)
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_depends (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_depends (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 depend TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name, depend)
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_make_depends (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_make_depends (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 make_depend TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name, make_depend)
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_opt_depends (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_opt_depends (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 opt_depend TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name, opt_depend)
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_check_depends (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_check_depends (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 check_depend TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name, check_depend)
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_provides (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_provides (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 provide TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name, provide)
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_conflicts (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_conflicts (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 conflict TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name, conflict)
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_replaces (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_replaces (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 replace TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name, replace)
-            )"#,
-            r#"CREATE TABLE IF NOT EXISTS pkg_groups (
+            )",
+            "CREATE TABLE IF NOT EXISTS pkg_groups (
                 branch TEXT NOT NULL,
                 pkg_name TEXT NOT NULL,
                 group_name TEXT NOT NULL,
                 PRIMARY KEY (branch, pkg_name, group_name)
-            )"#,
+            )",
         ];
 
         for table_sql in tables {
@@ -141,10 +141,10 @@ impl DatabaseOps {
         commit_id: &str,
     ) -> Result<()> {
         sqlx::query(
-            r#"
-            INSERT OR REPLACE INTO branch_commits (branch, commit_id) 
+            "
+            INSERT OR REPLACE INTO branch_commits (branch, commit_id)
             VALUES (?, ?)
-        "#,
+        ",
         )
         .bind(branch)
         .bind(commit_id)
@@ -170,7 +170,7 @@ impl DatabaseOps {
             "pkg_groups",
         ];
         for table in tables {
-            let query = format!("DELETE FROM {} WHERE branch = ?", table);
+            let query = format!("DELETE FROM {table} WHERE branch = ?");
             sqlx::query(&query).bind(branch).execute(&mut **tx).await?;
         }
         Ok(())
@@ -187,11 +187,11 @@ impl DatabaseOps {
 
         for pkg in packages {
             sqlx::query(
-                r#"
-                INSERT OR REPLACE INTO pkg_info 
-                (branch, pkg_name, pkg_desc, version, url, commit_id) 
+                "
+                INSERT OR REPLACE INTO pkg_info
+                (branch, pkg_name, pkg_desc, version, url, commit_id)
                 VALUES (?, ?, ?, ?, ?, ?)
-            "#,
+            ",
             )
             .bind(&pkg.info.branch)
             .bind(&pkg.info.pkg_name)
@@ -290,8 +290,7 @@ impl DatabaseOps {
     ) -> Result<()> {
         for item in items {
             let query = format!(
-                "INSERT OR IGNORE INTO {} (branch, pkg_name, {}) VALUES (?, ?, ?)",
-                table, column
+                "INSERT OR IGNORE INTO {table} (branch, pkg_name, {column}) VALUES (?, ?, ?)"
             );
             sqlx::query(&query)
                 .bind(branch)
@@ -310,54 +309,50 @@ impl DatabaseOps {
     ) -> Result<Vec<DatabasePackageInfo>> {
         let (query, param, count) = match search_type {
             SearchType::Name => (
-                r#"
-                    SELECT DISTINCT p.* FROM pkg_info p 
+                "
+                    SELECT DISTINCT p.* FROM pkg_info p
                     WHERE p.pkg_name LIKE ?
-                "#,
-                format!("%{}%", keyword),
+                ",
+                format!("%{keyword}%"),
                 1,
             ),
             SearchType::NameDesc => (
-                r#"
-                    SELECT DISTINCT p.* FROM pkg_info p 
+                "
+                    SELECT DISTINCT p.* FROM pkg_info p
                     WHERE (p.pkg_name LIKE ? OR p.pkg_desc LIKE ?)
-                "#,
-                format!("%{}%", keyword),
+                ",
+                format!("%{keyword}%"),
                 2,
             ),
             SearchType::Depends => (
-                r#"
+                "
                     SELECT DISTINCT p.* FROM pkg_info p
                     JOIN pkg_depends d ON p.pkg_name = d.pkg_name AND p.branch = d.branch
                     WHERE d.depend = ?
-                "#,
+                ",
                 keyword.to_string(),
                 1,
             ),
             SearchType::MakeDepends => (
-                r#"
-                    SELECT DISTINCT p.* FROM pkg_info p
-                    JOIN pkg_make_depends md ON p.pkg_name = md.pkg_name AND p.branch = md.branch
-                    WHERE md.make_depend = ?
-                "#,
+                "SELECT DISTINCT p.* FROM pkg_info p \
+                    JOIN pkg_make_depends md ON p.pkg_name = md.pkg_name AND p.branch = md.branch \
+                    WHERE md.make_depend = ?",
                 keyword.to_string(),
                 1,
             ),
             SearchType::OptDepends => (
-                r#"
+                "
                     SELECT DISTINCT p.* FROM pkg_info p
                     JOIN pkg_opt_depends od ON p.pkg_name = od.pkg_name AND p.branch = od.branch
                     WHERE od.opt_depend = ?
-                "#,
+                ",
                 keyword.to_string(),
                 1,
             ),
             SearchType::CheckDepends => (
-                r#"
-                    SELECT DISTINCT p.* FROM pkg_info p
-                    JOIN pkg_check_depends cd ON p.pkg_name = cd.pkg_name AND p.branch = cd.branch
-                    WHERE cd.check_depend = ?
-                "#,
+                "SELECT DISTINCT p.* FROM pkg_info p \
+                    JOIN pkg_check_depends cd ON p.pkg_name = cd.pkg_name AND p.branch = cd.branch \
+                    WHERE cd.check_depend = ?",
                 keyword.to_string(),
                 1,
             ),
@@ -393,10 +388,7 @@ impl DatabaseOps {
         let placeholders: Vec<String> = package_names.iter().map(|_| "?".to_string()).collect();
         let placeholders_str = placeholders.join(",");
 
-        let query = format!(
-            r#"SELECT * FROM pkg_info WHERE pkg_name IN ({})"#,
-            placeholders_str
-        );
+        let query = format!("SELECT * FROM pkg_info WHERE pkg_name IN ({placeholders_str})");
 
         let mut query_builder = sqlx::query(&query);
         for name in package_names {
@@ -440,8 +432,7 @@ impl DatabaseOps {
 
                 for (table, column) in tables {
                     let query = format!(
-                        "SELECT {} FROM {} WHERE pkg_name = ? AND branch = ?",
-                        column, table
+                        "SELECT {column} FROM {table} WHERE pkg_name = ? AND branch = ?"
                     );
                     let values = sqlx::query(&query)
                         .bind(&package_name)
