@@ -6,7 +6,7 @@ use crate::{
     types::{DatabasePackageDetails, DatabasePackageInfo},
 };
 use anyhow::Result;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::channel;
 use tracing::{error, info, warn};
 
 const BATCH_SIZE: usize = 3000;
@@ -58,7 +58,7 @@ impl Syncer {
             return Ok(());
         }
 
-        let (db_sender, mut db_receiver) = mpsc::channel::<SrcInfoTuple>(BATCH_SIZE * 2);
+        let (db_sender, mut db_receiver) = channel(BATCH_SIZE * 2);
 
         let fetcher = self.fetcher.clone();
         let fetch_task = tokio::spawn(async move {

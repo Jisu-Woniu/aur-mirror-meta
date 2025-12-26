@@ -10,6 +10,7 @@ use gix_packetline::read::ProgressAction;
 use gix_packetline::PacketLineRef;
 use reqwest::{header, Client};
 use std::collections::HashMap;
+use std::convert::Infallible;
 use tokio_util::compat::TokioAsyncReadCompatExt as _;
 use tracing::{error, trace};
 
@@ -67,7 +68,7 @@ impl AurFetcher {
             .header("Git-Protocol", "version=2")
             .header(header::USER_AGENT, &Self::user_agent());
         if let Some(token) = &self.github_token {
-            request_builder = request_builder.basic_auth(token, None::<&str>);
+            request_builder = request_builder.basic_auth(token, None::<Infallible>);
         }
         {
             let mut body = Vec::new();
@@ -116,7 +117,7 @@ impl AurFetcher {
             .header("Git-Protocol", "version=2")
             .header(header::USER_AGENT, &Self::user_agent());
         if let Some(token) = &self.github_token {
-            request_builder = request_builder.basic_auth(token, None::<&str>);
+            request_builder = request_builder.basic_auth(token, None::<Infallible>);
         }
         {
             let mut body = Vec::new();
@@ -157,7 +158,7 @@ impl AurFetcher {
     pub async fn fetch_branch_list(&self) -> Result<HashMap<String, String>> {
         let mut request_builder = self.client.get(AUR_GIT_UPLOAD_PACK_GET_URL);
         if let Some(token) = &self.github_token {
-            request_builder = request_builder.basic_auth(token, None::<&str>);
+            request_builder = request_builder.basic_auth(token, None::<Infallible>);
         }
         let response = request_builder.send().await?;
         if !response.status().is_success() {

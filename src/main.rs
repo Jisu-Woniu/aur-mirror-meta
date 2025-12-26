@@ -2,7 +2,9 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::process::Command;
+use time::macros::format_description;
 use tracing::{debug, info};
+use tracing_subscriber::fmt::time::LocalTime;
 
 mod app_state;
 mod aur_fetcher;
@@ -49,7 +51,11 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_timer(LocalTime::new(format_description!(
+            "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3] [offset_hour sign:mandatory]:[offset_minute]"
+        )))
+        .init();
 
     let cli = Cli::parse();
 

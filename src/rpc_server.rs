@@ -8,7 +8,7 @@ use axum::{
     Router,
 };
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 
@@ -432,7 +432,7 @@ async fn handle_git_upload_pack_post(
                 }
             }
             if let Some(token) = state.github_token.as_deref() {
-                req = req.basic_auth(token, None::<&str>);
+                req = req.basic_auth(token, None::<Infallible>);
             }
             let upstream = req
                 .body(reqwest::Body::wrap_stream(body.into_data_stream()))
