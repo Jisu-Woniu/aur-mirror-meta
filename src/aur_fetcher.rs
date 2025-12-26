@@ -9,7 +9,7 @@ use gix_packetline::async_io::{encode, StreamingPeekableIter};
 use gix_packetline::read::ProgressAction;
 use gix_packetline::PacketLineRef;
 use reqwest::{header, Client};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::convert::Infallible;
 use tokio_util::compat::TokioAsyncReadCompatExt as _;
 use tracing::{error, trace};
@@ -155,7 +155,7 @@ impl AurFetcher {
         Ok(blob_id_to_content_map)
     }
 
-    pub async fn fetch_branch_list(&self) -> Result<HashMap<String, String>> {
+    pub async fn fetch_branch_list(&self) -> Result<FxHashMap<String, String>> {
         let mut request_builder = self.client.get(AUR_GIT_UPLOAD_PACK_GET_URL);
         if let Some(token) = &self.github_token {
             request_builder = request_builder.basic_auth(token, None::<Infallible>);
@@ -172,7 +172,7 @@ impl AurFetcher {
             &[PacketLineRef::Flush],
             false,
         );
-        let mut branches = HashMap::new();
+        let mut branches = FxHashMap::default();
         while rd.read_line().await.is_some() {
             // skip first part
         }

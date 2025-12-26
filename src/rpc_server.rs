@@ -7,8 +7,9 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
-use std::{collections::HashMap, convert::Infallible};
+use std::convert::Infallible;
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 
@@ -328,7 +329,7 @@ async fn handle_snapshot(
 async fn handle_git_info_refs(
     State(state): State<RpcState>,
     Path(branch): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<FxHashMap<String, String>>,
 ) -> Result<Response<String>, StatusCode> {
     // Remove .git extension if present
     let branch_name = branch.strip_suffix(".git").unwrap_or(&branch);

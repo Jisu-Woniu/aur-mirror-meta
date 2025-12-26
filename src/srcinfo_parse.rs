@@ -1,26 +1,23 @@
 use itertools::Itertools;
-use std::collections::{hash_map, HashMap};
+use rustc_hash::FxHashMap;
 use tracing::warn;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedSrcInfo {
     pub pkgbase: String,
     pub pkgname: String,
-    pub properties: HashMap<String, Vec<String>>,
+    pub properties: FxHashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
 struct PkgBase {
     pkgbase: String,
-    properties: HashMap<String, Vec<String>>,
+    properties: FxHashMap<String, Vec<String>>,
 }
 
-fn merge_props(dst: &mut HashMap<String, Vec<String>>, src: &HashMap<String, Vec<String>>) {
+fn merge_props(dst: &mut FxHashMap<String, Vec<String>>, src: &FxHashMap<String, Vec<String>>) {
     for (k, v) in src {
-        let entry = dst.entry(k.clone());
-        if let hash_map::Entry::Vacant(vacant) = entry {
-            vacant.insert(v.clone());
-        }
+        dst.entry(k.clone()).or_insert_with(|| v.clone());
     }
 }
 
@@ -55,7 +52,7 @@ impl ParsedSrcInfo {
                         }
                         current_base = Some(PkgBase {
                             pkgbase: trimmed_value.to_string(),
-                            properties: HashMap::new(),
+                            properties: FxHashMap::default(),
                         });
                     }
                     "pkgname" => {
@@ -68,7 +65,7 @@ impl ParsedSrcInfo {
                             current_pkg = Some(ParsedSrcInfo {
                                 pkgbase: base.pkgbase.clone(),
                                 pkgname: trimmed_value.to_string(),
-                                properties: HashMap::new(),
+                                properties: FxHashMap::default(),
                             });
                         }
                     }

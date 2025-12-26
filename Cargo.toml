@@ -38,3 +38,4 @@ gix-object = "0.53.0"
 async-tempfile = "0.7.0"
 tokio-util = { version = "0.7.17", features = ["compat"] }
 time = { version = "0.3.44", features = ["macros"] }
+rustc-hash = "2.1.1"

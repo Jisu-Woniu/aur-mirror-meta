@@ -1,8 +1,8 @@
 use crate::types::{DatabasePackageDetails, DatabasePackageInfo, SearchType};
 use anyhow::Result;
 use futures::stream::TryStreamExt;
+use rustc_hash::FxHashMap;
 use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};
-use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct DatabaseOps {
@@ -118,10 +118,10 @@ impl DatabaseOps {
         Ok(())
     }
 
-    pub async fn get_existing_commits(&self) -> Result<HashMap<String, String>> {
+    pub async fn get_existing_commits(&self) -> Result<FxHashMap<String, String>> {
         let mut rows =
             sqlx::query("SELECT branch, commit_id FROM branch_commits").fetch(&self.pool);
-        let mut commits = HashMap::new();
+        let mut commits = FxHashMap::default();
         while let Some(row) = rows.try_next().await? {
             let branch: String = row.get("branch");
             let commit_id: String = row.get("commit_id");
@@ -431,9 +431,8 @@ impl DatabaseOps {
                 let mut groups = Vec::new();
 
                 for (table, column) in tables {
-                    let query = format!(
-                        "SELECT {column} FROM {table} WHERE pkg_name = ? AND branch = ?"
-                    );
+                    let query =
+                        format!("SELECT {column} FROM {table} WHERE pkg_name = ? AND branch = ?");
                     let values = sqlx::query(&query)
                         .bind(&package_name)
                         .bind(&pkg_branch)
