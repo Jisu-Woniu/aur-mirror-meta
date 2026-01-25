@@ -1,8 +1,14 @@
+use std::time::Duration;
+
 use crate::types::{DatabasePackageDetails, DatabasePackageInfo, SearchType};
 use anyhow::Result;
 use futures::stream::TryStreamExt;
 use rustc_hash::FxHashMap;
-use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};
+use sqlx::{
+    sqlite::{SqliteAutoVacuum, SqliteConnectOptions},
+    ConnectOptions as _, Row, SqlitePool,
+};
+use tracing::log::LevelFilter;
 
 #[derive(Clone)]
 pub struct DatabaseOps {
@@ -14,7 +20,10 @@ impl DatabaseOps {
         let pool = SqlitePool::connect_with(
             SqliteConnectOptions::new()
                 .filename(db_path)
-                .create_if_missing(true),
+                .create_if_missing(true)
+                .auto_vacuum(SqliteAutoVacuum::Incremental)
+                .optimize_on_close(true, Some(1000))
+                .log_slow_statements(LevelFilter::Debug, Duration::from_secs(3)),
         )
         .await?;
         let result = Self { pool };
@@ -477,5 +486,10 @@ impl DatabaseOps {
             .await?;
 
         Ok(row.map(|r| r.get("commit_id")))
+    }
+
+    pub async fn vacuum(&self) -> Result<()> {
+        sqlx::query("VACUUM").execute(&self.pool).await?;
+        Ok(())
     }
 }

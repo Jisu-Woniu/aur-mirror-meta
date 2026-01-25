@@ -144,6 +144,10 @@ impl Syncer {
         fetch_task.await?;
 
         info!("✅ Sync completed successfully. Processed {packages} packages from {branches} branches.");
+
+        info!("Compressing database with `VACUUM`...");
+        self.db.vacuum().await?;
+        info!("Compressing database completed.");
         Ok(())
     }
 }
