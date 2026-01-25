@@ -226,10 +226,10 @@ where
             rd.as_read_with_sidebands(|is_error, msg| {
                 if is_error {
                     error!("Packfile fetch error: {}", String::from_utf8_lossy(msg));
-                    ProgressAction::Interrupt
+                    ProgressAction::Break(())
                 } else {
                     trace!("Packfile fetch progress: {}", String::from_utf8_lossy(msg));
-                    ProgressAction::Continue
+                    ProgressAction::Continue(())
                 }
             }),
             dest,
