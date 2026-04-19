@@ -245,7 +245,7 @@ fn map_commit_id_to_srcinfo_blob_id(
     packfile_path: &std::path::Path,
 ) -> anyhow::Result<gix_hashtable::HashMap<ObjectId, ObjectId>> {
     let entries_offset = BytesToEntriesIter::new_from_header(
-        std::io::BufReader::with_capacity(4096 * 8, std::fs::File::open(packfile_path)?),
+        std::io::BufReader::new(std::fs::File::open(packfile_path)?),
         input::Mode::AsIs,
         EntryDataMode::Ignore,
         gix_hash::Kind::Sha1,
